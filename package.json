@@ -1,0 +1,19 @@
+{"name": "my-express-app",
+  "version": "1.0.0",
+  "description": "A simple Express.js application",
+  "main": "serveur.js",
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "ollama": "^0.6.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  },
+  "scripts": {
+    "start": "node serveur.js",
+    "dev": "nodemon ./chatollama/serveur.js" 
+  }
+}
