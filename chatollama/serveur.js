@@ -1,11 +1,41 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
 
-// Utiliser la clé depuis les variables d'environnement pour plus de sécurité
-const OLLAMA_API_KEY = 'b01aa9946169408f975614bcaf3940bd.1-z0NEinUQaqTGFEgXZefC4M';
+// Charger la configuration depuis config.json
+const configPath = path.join(__dirname, 'config.json');
+let config = {};
+try {
+  const configFile = fs.readFileSync(configPath, 'utf-8');
+  config = JSON.parse(configFile);
+  console.log('✅ Configuration chargée depuis config.json');
+} catch (err) {
+  console.warn('⚠️  config.json non trouvé ou invalide, utilisation des valeurs par défaut');
+  config = {
+    port: 3000,
+    ollama: {
+      apiKey: 'YOUR_API_KEY',
+      apiUrl: 'https://ollama.com/api/generate',
+      defaultModel: 'gpt-oss:120b-cloud'
+    }
+  };
+}
+
+// Variables d'environnement peuvent surcharger la configuration
+const PORT = process.env.PORT || config.port || 3000;
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || config.ollama.apiKey;
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || config.ollama.apiUrl;
+const DEFAULT_MODEL = process.env.OLLAMA_DEFAULT_MODEL || config.ollama.defaultModel;
+
+// Log de confirmation
+console.log('🔧 Configuration appliquée:');
+console.log('   Port:', PORT);
+console.log('   API URL:', OLLAMA_API_URL);
+console.log('   Modèle par défaut:', DEFAULT_MODEL);
+console.log('   Clé API présente:', !!OLLAMA_API_KEY);
 
 app.use(express.json());
 app.use(express.static(__dirname)); // Pour index.html
@@ -20,13 +50,13 @@ app.post('/ask', async (req, res) => {
   res.setHeader('Transfer-Encoding', 'chunked');
 
   try {
-    console.log('🔄 Appel API Ollama... model=', model || 'default gpt-oss:120b-cloud');
+    console.log('🔄 Appel API Ollama... model=', model || DEFAULT_MODEL);
 
     // Construire le payload en acceptant des champs multimodaux si fournis
     const payload = Object.assign(
       { stream: true },
       // permettre d'écraser le modèle depuis la requête côté client
-      model ? { model } : { model: 'gpt-oss:120b-cloud' },
+      model ? { model } : { model: DEFAULT_MODEL },
       // prompt si présent
       prompt ? { prompt } : {},
       // inputs (pour multimodal) si fournis
@@ -35,7 +65,7 @@ app.post('/ask', async (req, res) => {
       images ? { images } : {}
     );
 
-    const response = await fetch('https://ollama.com/api/generate', {
+    const response = await fetch(OLLAMA_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OLLAMA_API_KEY}`,
@@ -124,5 +154,5 @@ app.post('/ask', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Serveur streaming démarré → http://localhost:${PORT}`);
+  console.log(`\n🚀 Serveur streaming démarré → http://localhost:${PORT}\n`);
 });
