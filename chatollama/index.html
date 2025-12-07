@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>EmiChat</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-light: #f4f4f5;
+            --bg-dark: #020c1a; /* bleu nuit */
+            --text-light: #111;
+            --text-dark: #e0e6f1;
+            --user-bg: #3420e639;
+            --bot-bg: #14213d; /* bleu nuit bulles */
+            --bot-border: #1e2a4d;
+            --gemini-cursor: #fff; /* Couleur pour l'animation du curseur bot */
+            --icon-color-light: rgba(0, 0, 0, 0.4);
+            --icon-color-dark: rgba(255, 255, 255, 0.6);
+            --liked-color: #f87171; /* Rouge pour l'icône aimée */
+        }
+
+        * { box-sizing: border-box; margin:0; padding:0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            font-size: 14px; /* réduit la taille de la police */
+            background-color: var(--bg-light);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+
+        body.dark {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+
+/* Style général du bouton */
+.burger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.25s ease;
+    position: absolute;
+    top: 70px;
+    left: 10px;
+    z-index: 15;
+}
+
+/* Taille et couleur de l'icône */
+.burger-btn .material-icons {
+    top: 10px;
+    font-size: 32px; /* icône plus grande */
+    color: var(--icon-color-light);
+    transition: color 0.25s ease;
+}
+
+/* Hover */
+.burger-btn:hover {
+    background: rgba(0,0,0,0.06); /* léger survol clair */
+}
+
+body.dark .burger-btn:hover {
+    background: rgba(255,255,255,0.08); /* léger survol sombre */
+}
+
+/* Mode sombre : icône */
+body.dark .burger-btn .material-icons {
+    color: var(--icon-color-dark);
+}
+
+
+
+/* ... Styles existants ... */
+        
+       
+    
+        /* *Nouveau* : Style spécifique pour le contenu dans les messages du bot, 
+           pour gérer les marges et les blocs de texte si vous recevez du Markdown interprété. */
+        .bot p, .bot ul, .bot ol, .bot pre, .bot table {
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* *Nouveau* : S'assurer que les éléments de liste ne sont pas écrasés */
+        .bot ul, .bot ol {
+            padding-left: 20px;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* centre tous les éléments horizontalement */
+            width: 95%;
+            max-width: 800px;
+            height: 90vh; /* agrandi l'espace du chat */
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            overflow-y: auto; /* scroll ici */
+            scrollbar-width: thin;             
+            scrollbar-color: rgba(0,0,0,0.2) transparent; /* Firefox */
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 6px; /* très fin */
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: rgba(0,0,0,0.2); /* transparent léger */
+            border-radius: 3px;
+        }
+
+        body.dark .chat-container {
+            background-color: transparent;
+        }
+
+        /* Petit logo chatbot (déjà présent) */
+        .logo {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 90px;
+            height: 90px;
+        }
+
+        .messages { line-height: 1.6;
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            color: black;
+            margin-top: 60px;
+            white-space: pre-wrap; /* permet sauts de ligne et espaces */
+            line-height: 1.6;
+            width: 100%;
+            max-width: 640px; /* limite la largeur et permet centrage */
+        }
+
+        /* Style pour le message de bienvenue initial */
+        #welcome-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem; /* Grande taille */
+            color: #010423; /* Couleur claire */
+            font-weight: 300;
+            text-align: center;
+            pointer-events: none; /* Ne bloque pas les événements de la souris */
+            z-index: 0;
+            transition: opacity 0.3s;
+        }
+
+        body.dark #welcome-message {
+            color: #ffffff; /* Couleur plus foncée en mode sombre */
+        }
+
+        .message { font-size: 14px;
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            font-weight: 400;
+            transition: all 0.2s;
+            word-wrap: break-word;
+            white-space: pre-wrap; /* corrige les sauts de ligne */
+            position: relative; /* Pour positionner les actions à l'intérieur */
+            padding-bottom: 30px; /* Espace pour les icônes en bas */
+            color: black;
+        }
+        
+        /* Conteneur pour les actions (like/copy) */
+        .message-actions {
+            position: absolute;
+            bottom: 4px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            font-size: 16px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+        
+        .message-action {
+            cursor: pointer;
+            line-height: 1; /* assure un bon alignement des icônes */
+        }
+        
+        .message-action .material-icons {
+            font-size: 16px; /* Taille des icônes */
+            color: var(--icon-color-dark); /* Couleur par défaut pour les messages bot/sombre */
+        }
+
+        .user {
+            align-self: flex-end;
+            background-color: var(--user-bg);
+            color: black;
+            border-bottom-right-radius: 4px;
+        }
+        body.dark .user {
+            align-self: flex-end;
+            background-color: var(--user-bg);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .user .message-action .material-icons {
+            color: rgba(255, 255, 255, 0.8); /* Icônes claires sur fond bleu */
+        }
+
+        .bot { font-family: 'Inter', system-ui, sans-serif; 
+            align-self: flex-start;
+            color: black; /* Utilisation de text-dark pour un meilleur contraste */
+          
+         
+        }
+
+
+
+        body.dark .bot { font-family: 'Inter', system-ui, sans-serif; 
+            align-self: flex-start;
+            background-color: var(--bot-bg);
+            color: white; /* Utilisation de text-dark pour un meilleur contraste */
+         
+            border-bottom-left-radius: 4px;
+        }
+
+
+        
+        body:not(.dark) .bot .message-action .material-icons {
+            color: var(--icon-color-light); /* Icônes sombres sur fond clair (si bot-bg était clair) */
+        }
+
+        /* Couleur spécifique pour le like activé */
+        .liked .material-icons {
+            color: var(--liked-color) !important;
+            font-weight: 500;
+        }
+
+        /* Styles pour l'animation du curseur (type) */
+        .typing {
+            /* Pas de texte, uniquement l'animation */
+            min-height: 14px; /* Hauteur minimale pour l'animation */
+            line-height: 1;
+        }
+
+        .typing::after {
+            content: '...'; /* Curseur stylisé */
+            animation: typing-dots 1s infinite steps(3);
+            display: inline-block;
+            overflow: hidden;
+            width: 1.5ch; /* Limite la largeur pour les points */
+            font-weight: 700;
+            color: var(--gemini-cursor);
+            background-color: var(--bot-bg);
+        }
+        
+        .typing .message-actions {
+            display: none; /* Cache les actions pendant la saisie */
+        }
+
+        @keyframes typing-dots {
+            0% { width: 0ch; }
+            33% { width: 0.5ch; }
+            66% { width: 1ch; }
+            100% { width: 1.5ch; }
+        }
+
+        .input-container {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #ccc;
+            background-color: inherit;
+            width: 100%;
+            max-width: 640px; /* aligne l'input et le bouton avec la zone messages */
+        }
+
+        body.dark .input-container {
+            border-color: #1e2a4d;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            font-size: 14px; /* réduit la police */
+            margin-right: 10px;
+            background-color: #f9f9f9;
+            color: #111;
+            height: 100px;;
+            font-weight: 300;
+            align-self: flex-start;
+        }
+
+        body.dark .input-container input {
+            background-color: #1a2b503d;
+            color: #e0e6f1;
+            border: 1px solid #3a4c7a;
+        }
+
+        .input-container button {
+            padding: 8px;
+            min-width: 44px;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(0, 0, 0, 0.148);
+            border-radius: 50%;
+            background-color: transparent;
+            color: #050505;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            align-self: flex-end;
+        }
+
+        body.dark  .input-container button {
+            padding: 8px;
+            min-width: 44px;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(255, 255, 255, 0.241);
+            border-radius: 50%;
+            background-color: transparent;
+            color: #fff;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            align-self: flex-end;
+        }
+
+        .input-container button .material-icons {
+            font-size: 20px;
+        }
+
+        .toggle-theme {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 10; 
+        }
+
+        body.dark .toggle-theme {
+            border-color: #3a4c7a;
+            color: #e0e6f1;
+        }
+
+.chatGrandcontainer{
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    height: 100vh;
+    justify-content: center; /* centre horizontalement */
+    align-items: center;     /* centre verticalement */
+    gap: 18px;
+    overflow: hidden;
+}
+  
+
+/* STYLE SIDEBAR */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: 200px;
+            background-color: #e2e8f079; 
+            color: var(--text-light);
+            padding: 15px;
+            border-right: 1px solid #ccc;
+            flex-direction: column;
+            transition: all 0.3s;
+            flex-shrink: 0;
+            /* Permettre le scroll vertical si le contenu dépasse la hauteur */
+            overflow-y: auto;
+            max-height: 100vh;
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(0,0,0,0.18) transparent;
+        }
+        
+        .sidebar.hidden {
+    display: none;
+}
+        body.dark .sidebar {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+            border-right: 1px solid var(--bot-border);
+        }
+
+        .sidebar-header {
+            padding-bottom: 15px;
+            
+        }
+        body.dark .sidebar-header { border-color: #3a4c7a; }
+
+        .sidebar-action {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-light);
+            transition: background 0.2s, color 0.2s;
+            text-align: left;
+        }
+        
+        body.dark .sidebar-action { color: var(--text-dark); }
+        
+        .sidebar-action .material-icons {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+
+        .sidebar-action:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        body.dark .sidebar-action:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .primary-action {
+            background-color: transparent;
+            color: var(--text-light) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .primary-action:hover {
+            background-color: rgba(0, 0, 0, 0.03); 
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+        
+        body.dark .primary-action {
+            color: var(--text-dark) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        body.dark .primary-action:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .danger-action {
+            background-color: #f87171;
+            color: #fff !important;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .danger-action:hover {
+            background-color: #ef4444;
+        }
+
+
+        
+        /* Modale de Paramètres */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.4); 
+        }
+
+        .modal-content {
+            background-color: var(--bg-light);
+            margin: 15% auto; 
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%; 
+            max-width: 500px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        body.dark .modal-content {
+            background-color: var(--bot-bg);
+            color: var(--text-dark);
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        body.dark .close-button:hover,
+        body.dark .close-button:focus {
+            color: var(--text-dark);
+        }
+        
+        .setting-item {
+            margin-top: 15px;
+            padding: 10px 0;
+            border-top: 1px solid #eee;
+        }
+        body.dark .setting-item {
+            border-color: #3a4c7a;
+        }
+        
+        .setting-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        #modelSelect {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: var(--bg-light);
+            color: var(--text-light);
+        }
+        body.dark #modelSelect {
+            background-color: #1a2b50;
+            border-color: #3a4c7a;
+            color: var(--text-dark);
+        }
+        
+
+        /* Historique */
+        .sidebar-section {
+            flex: 1; 
+            margin-top: 15px;
+            overflow-y: auto;
+            min-height: 100px;
+        }
+        .sidebar-section h3 {
+            font-size: 1.1em;
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: var(--text-light);
+        }
+        body.dark .sidebar-section h3 { color: var(--text-dark); }
+        
+        .history-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .history-item:hover, .history-item.active {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        body.dark .history-item:hover, body.dark .history-item.active {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .empty-history {
+            font-style: italic;
+            color: #777;
+            font-size: 13px;
+        }
+
+        .sidebar-footer {
+            padding-top: 15px;
+            border-top: 1px solid #ccc;
+        }
+        body.dark .sidebar-footer { border-color: #3a4c7a; }
+
+
+/* --- Comportement par défaut (tu avais déjà quelque chose de similaire) --- */
+@media (min-width: 901px) {
+    .sidebar {
+        width: 260px;
+        min-width: 260px;
+        transform: translateX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar.collapsed {
+        transform: translateX(-370px); /* on pousse EXACTEMENT la largeur */
+    }
+}
+
+/* Mobile : .open gère l'ouverture */
+@media (max-width: 900px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 260px; /* IMPORTANT : fixer une largeur précise */
+        transform: translateX(-110%); /* Masquage TOTAL */
+        transition: transform 0.3s ease;
+        z-index: 20;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    }
+
+    .sidebar.open {
+        transform: translateX(0); /* Ouverture nette */
+    }
+}
+
+/* WebKit scrollbar custom for sidebar */
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12);
+    border-radius: 6px;
+}
+body.dark .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+}
+
+
+
+
+.history-item {
+    position: relative;
+    padding-right: 40px;
+}
+
+.delete-chat-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: 0.2s;
+}
+
+.delete-chat-btn:hover {
+    opacity: 1;
+}
+
+
+
+
+    </style>
+</head>
+<body>
+
+    
+    <img src="Cream_Black_Typography_Loop_Brand_Logo-removebg-preview.png" class="logo" alt="Chatbot Logo">
+    
+    <button class="toggle-theme">
+        <span class="material-icons" id="theme-icon">dark_mode</span>
+        Mode
+    </button>
+
+
+    <div class="chatGrandcontainer">
+        
+    <button id="chatMenuBtn" aria-label="Ouvrir le menu"
+        class="burger-btn">
+    <span class="material-icons" aria-hidden="true">menu</span>
+</button>
+
+   <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button id="newChatBtn" class="sidebar-action primary-action">
+                    <span class="material-icons">add_box</span>
+                    Nouvelle conversation
+                </button>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Historique</h3>
+                <div class="history-list" id="historyList">
+                    <p class="empty-history">Aucune conversation</p>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <button id="settingsBtn" class="sidebar-action">
+                    <span class="material-icons">settings</span>
+                    Paramètres
+                </button>
+               
+
+  <div id="avatar" style="
+      width:60px;height:60px;margin:0 auto 15px;
+      border-radius:50%; border: 2px solid #1e2a4d;color:white;
+      display:flex;align-items:center;justify-content:center;
+      font-size:1.8em;font-weight:bold;text-transform:uppercase;
+    ">J</div>
+
+ <h2 style="margin-bottom:10px;font: size 0.5em;">Profil Utilisateur</h2>
+    <p><strong>Nom:</strong> <span id="userName"></span></p>
+    <p><strong>Email:</strong> <span id="userEmail"></span></p>
+
+    <button id="logoutBtn" style="
+      margin-top:20px;padding:8px 16px;border:none;
+      background:transparent;font-size:1em;cursor:pointer;
+      color:inherit;border-bottom:1px solid currentColor;
+      transition:0.3s;
+    ">Déconnexion</button>
+
+
+            </div>
+        </div> 
+
+
+  <div class="chat-container">
+
+
+        
+        <h1 id="welcome-message">Bonjour c'est Emir </h1>
+        <div class="messages" id="messages"></div>
+        <div class="input-container">
+            <input type="text" id="prompt" placeholder="Demander à Emir..." />
+            <button id="sendBtn"><span class="material-icons">send</span></button>
+        </div>
+    </div>
+
+         <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Paramètres</h2>
+            
+            
+            <div class="setting-item">
+                <label for="modelSelect">Modèle IA utilisé :</label>
+                <select id="modelSelect">
+                    <option value="gpt-oss:120b-cloud">gpt-oss:120b-cloud (texte)</option>
+                    <option value="gpt-oss:multimodal-120b">gpt-oss:multimodal-120b (multimodal)</option>
+                    <option value="gpt-oss:image-120b">gpt-oss:image-120b (image-capable)</option>
+                </select>
+            </div>
+            <div class="setting-item">
+                <label for="imageUpload">Uploader des images (optionnel) :</label>
+                <input id="imageUpload" type="file" accept="image/*" multiple />
+                <div id="imagePreview" class="image-preview" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+            </div>
+            <div class="setting-item">
+                <label>Effacer l'historique :</label>
+                <button id="clearHistoryBtn" class="danger-action">Effacer toutes les conversations</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+  
+
+ 
+  <!-- Firebase SDK -->
+ <script type="module">
+// --- Imports Firebase ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { 
+  getFirestore, collection, query, orderBy, addDoc, onSnapshot, updateDoc, 
+  doc, serverTimestamp, deleteDoc, where 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { 
+  getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+// --- Config Firebase ---
+ const firebaseConfig = {
+    apiKey: "AIzaSyBAbHxcT21ufbuknEyHYrJnYIIOdbPxen4",
+    authDomain: "emir-5e1f3.firebaseapp.com",
+    projectId: "emir-5e1f3",
+    storageBucket: "emir-5e1f3.firebasestorage.app",
+    messagingSenderId: "153975613833",
+    appId: "1:153975613833:web:da28eac10b5511eb15d958",
+    measurementId: "G-W9QQ9DKXKX"
+  };
+
+// --- Initialisation ---
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+
+
+// --- Sélection des éléments DOM ---
+
+const userName = document.getElementById("userName");
+const userEmail = document.getElementById("userEmail");
+const logoutBtn = document.getElementById("logoutBtn");
+const avatarDiv = document.getElementById("avatar");
+let currentUser = null;   // Utilisateur Firebase connecté
+
+
+        const messagesEl = document.getElementById('messages');
+        const promptEl = document.getElementById('prompt');
+        const sendBtn = document.getElementById('sendBtn');
+        const themeBtn = document.querySelector('.toggle-theme');
+        const themeIcon = document.getElementById('theme-icon');
+        const welcomeMessageEl = document.getElementById('welcome-message'); 
+
+  const sidebarEl = document.getElementById('sidebar');
+        const menuToggleBtn = document.getElementById('menuToggle');
+        const menuIconEl = document.getElementById('menuIcon');
+        const historyListEl = document.getElementById('historyList');
+        const modelSelect = document.getElementById('modelSelect');
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        let currentImages = []; // tableau de dataURLs (base64)
+        const newChatBtn = document.getElementById('newChatBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeModalBtn = settingsModal.querySelector('.close-button');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+
+
+// --- Authentification Google ---
+if (!window.location.pathname.includes("connectionGoogle.html")) {
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      // Affiche un écran de connexion si aucun utilisateur n'est connecté
+      const loginDiv = document.createElement("div");
+      loginDiv.style = `
+        position:fixed; top:0; left:0; width:100vw; height:100vh;
+        background:#020c1a; z-index:1000;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        color:white; font-family:Arial, sans-serif;
+      `;
+      loginDiv.innerHTML = `
+
+       <img src="Cream_Black_Typography_Loop_Brand_Logo-removebg-preview.png" style="
+        width:8em;
+          font-size:1em;
+        " alt="Chatbot Logo">
+        <h1 style="font-size:2.5em;margin-bottom:20px;">EmiChat</h1>
+        <button id="googleLogin" style="
+          display:flex; align-items:center; gap:10px;
+          font-size:1em; padding:12px 20px;
+          background:transparent; color:#444;
+          border: 1px solid white; border-radius:12px; cursor:pointer; font-weight:bold;
+          transition:0.3s;
+        ">
+          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo" style="width:20px;height:20px; background:none; border-radius:4px;" />
+          <span style="color:white;">Se connecter à EmiChat avec Google</span>
+        </button>
+      `;
+      document.body.appendChild(loginDiv);
+
+      const googleBtn = document.getElementById("googleLogin");
+      googleBtn.addEventListener("mouseover", () => {
+        googleBtn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+      });
+      googleBtn.addEventListener("mouseout", () => {
+        googleBtn.style.boxShadow = "none";
+      });
+
+      document.getElementById("googleLogin").onclick = async () => {
+        try {
+          await signInWithPopup(auth, provider);
+          loginDiv.remove(); // Retire l’écran après connexion
+        } catch (e) {
+          alert("Erreur de connexion Google");
+        }
+      };
+    } else {
+      // Utilisateur connecté → sauvegarde + affichage profil
+      currentUser = user;
+ updateProfileUI(currentUser)
+    }
+  });
+
+  // Déconnexion
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.reload();
+  });
+}
+
+// --- Gestion profil utilisateur ---
+function updateProfileUI(user) {
+  // Affiche le nom ou email
+  const fullName = user.displayName || user.email || "Utilisateur";
+  userName.textContent = fullName;
+  userEmail.textContent = user.email || "";
+
+  // Crée des initiales
+  let initials = "";
+  if (user.displayName) {
+    const parts = user.displayName.trim().split(" ");
+    initials = parts.length >= 2 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2);
+  } else {
+    initials = user.email.slice(0, 2);
+  }
+  if (avatarDiv) avatarDiv.textContent = initials.toUpperCase();
+}
+
+
+
+
+  let conversations = JSON.parse(localStorage.getItem('emiChatHistory')) || [];
+        let currentChatId = null;
+
+        // Restore saved model preference
+        try {
+            const savedModel = localStorage.getItem('emi_model');
+            if (savedModel && modelSelect) modelSelect.value = savedModel;
+        } catch (e) { /* ignore */ }
+
+        // Persist model selection
+        if (modelSelect) modelSelect.addEventListener('change', () => {
+            try { localStorage.setItem('emi_model', modelSelect.value); } catch(e){}
+        });
+
+        // Image upload handling
+        function renderImagePreviews() {
+            if (!imagePreview) return;
+            imagePreview.innerHTML = '';
+            currentImages.forEach((dataUrl, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'relative';
+                wrapper.style.width = '72px';
+                wrapper.style.height = '72px';
+
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '6px';
+                wrapper.appendChild(img);
+
+                const btn = document.createElement('button');
+                btn.textContent = '✕';
+                btn.title = 'Supprimer';
+                btn.style.position = 'absolute';
+                btn.style.top = '2px';
+                btn.style.right = '2px';
+                btn.style.background = 'rgba(0,0,0,0.5)';
+                btn.style.color = '#fff';
+                btn.style.border = 'none';
+                btn.style.borderRadius = '12px';
+                btn.style.width = '20px';
+                btn.style.height = '20px';
+                btn.style.cursor = 'pointer';
+                btn.addEventListener('click', () => { currentImages.splice(idx,1); renderImagePreviews(); });
+                wrapper.appendChild(btn);
+
+                imagePreview.appendChild(wrapper);
+            });
+        }
+
+        if (imageUpload) {
+            imageUpload.addEventListener('change', (ev) => {
+                const files = Array.from(ev.target.files || []);
+                if (files.length === 0) return;
+                // Limit to 6 images to avoid huge payloads
+                const toRead = files.slice(0, 6);
+                let readCount = 0;
+                toRead.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const dataUrl = e.target.result;
+                        currentImages.push(dataUrl);
+                        readCount++;
+                        if (readCount === toRead.length) renderImagePreviews();
+                    };
+                    reader.onerror = () => { readCount++; };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
+
+//SIDEBAR
+
+        // --- Fonctions de gestion de la Sidebar/Historique ---
+
+        function saveHistory() {
+            localStorage.setItem('emiChatHistory', JSON.stringify(conversations));
+        }
+
+        function renderHistory() {
+    historyListEl.innerHTML = '';
+    
+    if (conversations.length === 0) {
+        historyListEl.innerHTML = '<p class="empty-history">Aucune conversation</p>';
+        return;
+    }
+    
+    conversations.forEach(chat => {
+        const div = document.createElement('div');
+        div.className = `history-item ${chat.id === currentChatId ? 'active' : ''}`;
+        div.dataset.id = chat.id;
+
+        // Titre de la conversation
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = chat.title;
+        titleSpan.style.cursor = "pointer";
+
+        titleSpan.addEventListener('click', () => {
+            loadChat(chat.id);
+            if (window.innerWidth <= 900) toggleSidebar();
+        });
+
+        // Bouton delete (Google Material Icon)
+        const deleteBtn = document.createElement('span');
+        deleteBtn.className = "material-icons delete-chat-btn";
+        deleteBtn.textContent = "delete";
+
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // empêche d’ouvrir la conversation quand on clique sur delete
+            supprimerConversation(chat.id);
+        });
+
+        div.appendChild(titleSpan);
+        div.appendChild(deleteBtn);
+        
+        historyListEl.appendChild(div);
+    });
+}
+
+        
+
+/**
+ * Supprime une conversation précise.
+ * @param {number} id - ID de la conversation à supprimer
+ */
+function supprimerConversation(id) {
+    if (!confirm("Voulez-vous vraiment supprimer cette conversation ?")) return;
+
+    // Filtre : on garde toutes les conversations sauf celle à supprimer
+    conversations = conversations.filter(c => c.id !== id);
+
+    // Si on vient de supprimer la conversation active :
+    if (currentChatId === id) {
+        if (conversations.length > 0) {
+            currentChatId = conversations[0].id;
+            loadChat(currentChatId);
+        } else {
+            currentChatId = null;
+            displayMessages([]);
+            newChat(); // recrée une toute nouvelle discussion
+        }
+    }
+
+    saveHistory();
+    renderHistory();
+}
+
+/**
+ * Supprime toutes les conversations.
+ */
+function supprimerToutesLesConversations() {
+    if (!confirm("Voulez-vous VRAIMENT supprimer TOUTES les conversations ?")) return;
+
+    conversations = [];
+    currentChatId = null;
+
+    saveHistory();
+    renderHistory();
+    displayMessages([]);
+
+    newChat(); // recommence propre
+}
+
+
+        function newChat() {
+            currentChatId = Date.now();
+            conversations.unshift({ id: currentChatId, title: 'Nouvelle discussion', messages: [] });
+            saveHistory();
+            renderHistory();
+            displayMessages([]); 
+            checkMessageCount(); 
+        }
+
+        function loadChat(id) {
+            currentChatId = id;
+            const chat = conversations.find(c => c.id === id);
+            if (chat) {
+                displayMessages(chat.messages);
+                renderHistory(); 
+            }
+        }
+
+        function displayMessages(messages) {
+            messagesEl.innerHTML = ''; 
+            messages.forEach(msg => {
+                addMessage(msg.text, msg.type, false, msg.liked || false);
+            });
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            checkMessageCount();
+        }
+
+        function clearAllHistory() {
+            if (confirm("Êtes-vous sûr de vouloir supprimer TOUT l'historique de conversation ? Cette action est irréversible.")) {
+                conversations = [];
+                currentChatId = null;
+                saveHistory();
+                renderHistory();
+                displayMessages([]);
+                settingsModal.style.display = 'none';
+                newChat(); 
+            }
+        }
+
+        function updateCurrentChat(userPrompt, botResponse) {
+            let chat = conversations.find(c => c.id === currentChatId);
+            
+            if (!chat) {
+                newChat();
+                chat = conversations.find(c => c.id === currentChatId);
+            }
+            
+            if (chat.title === 'Nouvelle discussion' || chat.messages.length === 0) {
+                chat.title = userPrompt.length > 30 ? userPrompt.substring(0, 30) + '...' : userPrompt;
+            }
+            
+            chat.messages.push({ type: 'user', text: userPrompt });
+            chat.messages.push({ type: 'bot', text: botResponse, liked: false }); 
+            
+            saveHistory();
+            renderHistory();
+        }
+
+ 
+        newChatBtn.addEventListener('click', newChat);
+        clearHistoryBtn.addEventListener('click', clearAllHistory);
+
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'block';
+        });
+        closeModalBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+        window.addEventListener('click', (event) => {
+            if (event.target == settingsModal) {
+                settingsModal.style.display = 'none';
+            }
+        });
+
+        sendBtn.addEventListener('click', sendPrompt);
+        promptEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') sendPrompt();
+        });
+        
+        document.addEventListener('click', (event) => {
+            if (window.innerWidth <= 900 && sidebarEl.classList.contains('open') && 
+                !sidebarEl.contains(event.target) && !menuToggleBtn.contains(event.target)) {
+                toggleSidebar();
+            }
+        });
+        
+        if (conversations.length > 0) {
+            loadChat(conversations[0].id);
+        } else {
+            newChat(); 
+        }
+function initSidebarToggle() {
+    const chatMenuBtn = document.getElementById('chatMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+
+    if (!chatMenuBtn || !sidebar) return; // sécurité
+
+    // Met à jour les attributs ARIA selon l'état courant et la taille d'écran
+    function setAria() {
+        const isMobile = window.innerWidth <= 900;
+        if (isMobile) {
+            const open = sidebar.classList.contains('open');
+            chatMenuBtn.setAttribute('aria-expanded', String(open));
+            chatMenuBtn.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+        } else {
+            // Sur desktop on considère "ouvert" si la sidebar N'EST PAS en 'collapsed'
+            const open = !sidebar.classList.contains('collapsed');
+            chatMenuBtn.setAttribute('aria-expanded', String(open));
+            chatMenuBtn.setAttribute('aria-label', open ? 'Masquer la barre latérale' : 'Afficher la barre latérale');
+        }
+    }
+
+    // Basculer la sidebar : comportement différencié mobile / desktop
+    function toggleSidebar(e) {
+        if (e) e.stopPropagation();
+
+        const isMobile = window.innerWidth <= 900;
+
+        if (isMobile) {
+            // Mobile : on bascule la classe 'open'
+            sidebar.classList.toggle('open');
+        } else {
+            // Desktop : on bascule la classe 'collapsed'
+            sidebar.classList.toggle('collapsed');
+        }
+
+        // S'assurer qu'on n'a pas les deux classes en même temps
+        sidebar.classList.remove(isMobile ? 'collapsed' : 'open');
+
+        setAria();
+    }
+
+    // Clic sur le bouton burger
+    chatMenuBtn.addEventListener('click', toggleSidebar);
+
+    // Clic en dehors : ferme seulement sur mobile (comportement attendu)
+    document.addEventListener('click', (e) => {
+        const isMobile = window.innerWidth <= 900;
+        if (!isMobile) return; // pas de fermeture automatique sur desktop
+
+        if (sidebar.classList.contains('open')) {
+            const clickInside = sidebar.contains(e.target) || chatMenuBtn.contains(e.target);
+            if (!clickInside) {
+                sidebar.classList.remove('open');
+                setAria();
+            }
+        }
+    });
+
+    // Touche Échap : ferme la sidebar si elle est ouverte (utile accessibilité)
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const isMobile = window.innerWidth <= 900;
+            if (isMobile && sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                setAria();
+            } else if (!isMobile && sidebar.classList.contains('collapsed')) {
+                // optionnel : on peut décider que Esc ouvre la sidebar sur desktop,
+                // ici on n'ouvre rien, on laisse le comportement tel quel.
+            }
+        }
+    });
+
+    // Au redimensionnement : corrige les classes incompatibles et met à jour ARIA
+    window.addEventListener('resize', () => {
+        const isMobile = window.innerWidth <= 900;
+
+        if (isMobile) {
+            // Si on passe en mobile, retire la classe desktop 'collapsed'
+            sidebar.classList.remove('collapsed');
+        } else {
+            // Si on passe en desktop, retire la classe mobile 'open'
+            sidebar.classList.remove('open');
+        }
+
+        setAria();
+    });
+
+    // Initialisation de l'état ARIA selon la taille d'écran
+    setAria();
+}
+
+// Appel après chargement DOM
+document.addEventListener('DOMContentLoaded', initSidebarToggle);
+
+
+
+
+        // --- Fonctions de gestion des actions de message ---
+
+        function copyMessage(event) {
+            const messageEl = event.currentTarget.closest('.message');
+            // Récupère le texte brut du message (sans les balises <br> ou les actions)
+            const textToCopy = messageEl.textContent.trim(); 
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('Message copié !');
+                // Optionnel: feedback visuel de courte durée sur l'icône de copie
+            }).catch(err => {
+                console.error('Erreur de copie:', err);
+                alert('Échec de la copie.');
+            });
+        }
+
+        function likeMessage(event) {
+            const likeButton = event.currentTarget;
+            const icon = likeButton.querySelector('.material-icons');
+            
+            // Toggle la classe 'liked' sur le bouton (l'état "aimé")
+            likeButton.classList.toggle('liked');
+
+            // Change l'icône entre outline (non aimé) et filled (aimé)
+            if (likeButton.classList.contains('liked')) {
+                icon.textContent = 'favorite'; // Cœur rempli
+                // Logique de serveur ici (enregistrer le like)
+            } else {
+                icon.textContent = 'favorite_border'; // Cœur vide
+                // Logique de serveur ici (retirer le like)
+            }
+        }
+        
+        function createActionsContainer(div) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'message-actions';
+            
+            // 1. Bouton J'AIME
+            const likeAction = document.createElement('span');
+            likeAction.className = 'message-action';
+            likeAction.innerHTML = '<span class="material-icons">favorite_border</span>';
+            likeAction.addEventListener('click', likeMessage);
+            actionsDiv.appendChild(likeAction);
+
+            // 2. Bouton COPIER
+            const copyAction = document.createElement('span');
+            copyAction.className = 'message-action';
+            copyAction.innerHTML = '<span class="material-icons">content_copy</span>';
+            copyAction.addEventListener('click', copyMessage);
+            actionsDiv.appendChild(copyAction);
+
+            div.appendChild(actionsDiv);
+        }
+
+        // --- Fonctions de gestion de l'affichage ---
+
+        function checkMessageCount() {
+            // Affiche/Cache le message de bienvenue en fonction du nombre de messages
+            const hasMessages = messagesEl.children.length > 0;
+            welcomeMessageEl.style.opacity = hasMessages ? '0' : '1';
+            welcomeMessageEl.style.pointerEvents = hasMessages ? 'none' : 'auto';
+        }
+
+        function addMessage(text, type, isTyping = false) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            
+            if (isTyping) {
+                div.classList.add('typing');
+                // L'animation CSS gère le '...'
+            } else {
+               div.innerHTML = text.replace(/\n/g, '<br>');
+            }
+            
+            // Ajoute le conteneur des actions
+            createActionsContainer(div);
+            
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            checkMessageCount(); // Vérifie après l'ajout d'un message
+            return div;
+        }
+
+        // --- Gestion des événements et logique du chat ---
+        
+        // Initialiser le thème depuis localStorage
+        const savedTheme = localStorage.getItem('emi_theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark');
+            themeIcon.textContent = 'light_mode';
+        } else {
+            document.body.classList.remove('dark');
+            themeIcon.textContent = 'dark_mode';
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            if(document.body.classList.contains('dark')) {
+                themeIcon.textContent = 'light_mode';
+                localStorage.setItem('emi_theme', 'dark');
+            } else {
+                themeIcon.textContent = 'dark_mode';
+                localStorage.setItem('emi_theme', 'light');
+            }
+        });
+
+        sendBtn.addEventListener('click', sendPrompt);
+        promptEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') sendPrompt();
+        });
+
+        checkMessageCount(); 
+
+        // ... Fonctions existantes (likeMessage, copyMessage, createActionsContainer, checkMessageCount, addMessage) ...
+
+        async function sendPrompt() {
+            const prompt = promptEl.value.trim();
+            if (!prompt) return;
+
+            // 1. Ajoute le message utilisateur
+            // On utilise addMessage pour que les messages utilisateurs soient gérés correctement avec les actions
+            addMessage(prompt, 'user'); 
+            promptEl.value = '';
+
+            // 2. Ajoute le message du bot AVEC l'animation de saisie
+            const botMessageEl = addMessage('', 'bot', true); 
+            // On masque les actions tant que le bot 'tape'
+            const actions = botMessageEl.querySelector('.message-actions');
+            actions.style.display = 'none';
+
+            try {
+                const selectedModel = modelSelect ? modelSelect.value : undefined;
+                const payload = { prompt, model: selectedModel };
+                if (currentImages && currentImages.length > 0) payload.images = currentImages;
+                const res = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                // clear staged images after sending (UI feedback)
+                if (imageUpload) imageUpload.value = '';
+                currentImages = [];
+                renderImagePreviews();
+
+                // Retire l'animation de saisie une fois qu'on a la réponse (même en cas d'erreur)
+                botMessageEl.classList.remove('typing'); 
+                actions.style.display = 'flex'; // Réaffiche les actions
+
+                if (!res.ok) {
+                    botMessageEl.innerHTML = `Erreur serveur: ${res.status}`;
+                    createActionsContainer(botMessageEl); 
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8'); // S'assurer qu'on utilise l'UTF-8
+                let fullResponse = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    fullResponse += chunk;
+                    
+                    // Transformation pour éviter les astérisques brutes :
+                    // On suppose que le backend renvoie du texte potentiellement formaté en Markdown.
+                    // Pour éviter les astérisques bruts, on remplace les sauts de ligne 
+                    // et on peut implémenter une légère conversion du Markdown si nécessaire,
+                    // mais pour rester simple, on gère juste les sauts de ligne et on laisse 
+                    // le texte s'écouler.
+
+                    let contentHtml = formatText(fullResponse)
+                    
+                    // Réécriture complète du contenu pour le streaming
+                    botMessageEl.innerHTML = contentHtml;
+                    
+                    // Ajoute/réinsère les actions à la fin du message à chaque mise à jour
+                    createActionsContainer(botMessageEl); 
+                    
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                }
+
+                // Met à jour l'historique de la conversation
+                updateCurrentChat(prompt, fullResponse);
+            } catch (err) {
+                botMessageEl.classList.remove('typing'); // Retire l'animation en cas d'erreur réseau
+                actions.style.display = 'flex'; // Réaffiche les actions
+                botMessageEl.innerHTML = 'Erreur : Impossible de contacter le serveur.';
+                createActionsContainer(botMessageEl); 
+                console.error(err);
+            }
+        }
+
+
+        
+function formatText(text) {
+    let html = text;
+
+    // 0. GESTION DES BLOCS DE CODE (Doit être la première étape)
+    // Isole les blocs de code pour éviter la conversion de Markdown à l'intérieur.
+    let codeBlocks = [];
+    html = html.replace(/```([\s\S]*?)```/g, (match, content) => {
+        // Enlève l'éventuelle langue ou les espaces de début/fin du bloc
+        const codeContent = content.replace(/^[a-zA-Z]+\n/, '').trim();
+        const placeholder = `__CODEBLOCK_${codeBlocks.length}__`;
+        codeBlocks.push(`<pre><code>${codeContent}</code></pre>`);
+        return placeholder;
+    });
+
+    // 1. GESTION DES EN-TÊTES ET RÈGLES HORIZONTALES (sur lignes entières)
+    
+    // Titres (H1 à H4)
+    html = html.replace(/^####\s+(.*)/gm, '<h4>$1</h4>');
+    html = html.replace(/^###\s+(.*)/gm, '<h3>$1</h3>');
+    html = html.replace(/^##\s+(.*)/gm, '<h2>$1</h2>');
+    html = html.replace(/^#\s+(.*)/gm, '<h1>$1</h1>');
+
+    // Remplacement des Règles Horizontales Standards (---|***|___ sur une ligne)
+    html = html.replace(/^\s*([-_*]){3,}\s*$/gm, '<hr>');
+
+    // Suppression des artefacts de séparateurs (lignes composées uniquement de tirets, barres, et colons)
+    html = html.replace(/^\s*[|: -]+\s*$/gm, '');
+
+    // 1.5. NOUVELLE ÉTAPE : GESTION ET SUPPRESSION DES PIPES DE TABLEAUX |
+    // 1. Suppression du pipe de début et de fin sur les lignes qui ressemblent à une ligne de tableau
+    html = html.replace(/^\s*\|(.*?)\|\s*$/gm, '$1');
+    // 2. Remplacement des pipes internes (avec espaces autour) par un simple espace
+    html = html.replace(/\s\|\s/g, ' ');
+
+    // 2. GESTION DES SAUTS DE LIGNE
+    html = html.replace(/\n/g, '<br>');
+
+    // 3. GESTION DES LISTES NON ORDONNÉES (Simplification)
+    // Si la chaîne commence par un marqueur de liste sans <br>
+    if (html.startsWith('* ') || html.startsWith('- ')) {
+        html = html.replace(/[*-\s]/, '<li>');
+    }
+    // Remplacement des marqueurs de liste après le traitement des sauts de ligne
+    html = html.replace(/<br>\* /g, '</li><li>');
+    html = html.replace(/<br>- /g, '</li><li>');
+
+    // Encapsuler dans <ul></ul> si des <li> sont présents
+    if (html.includes('<li>')) {
+        if (html.startsWith('</li>')) {
+            html = html.substring(5);
+        }
+        if (!html.startsWith('<ul>')) {
+            html = '<ul>' + html;
+        }
+        if (!html.endsWith('</ul>')) {
+            html += html.endsWith('</li>') ? '</ul>' : '</li></ul>';
+        }
+    }
+
+    // 4. FORMATAGE INLINE
+    
+    // Code Inline : `texte`
+    html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+    
+    // Gras : **texte**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    
+    // Italique : *texte*
+    html = html.replace(/\*(.*?)\*/g, '<i>$1</i>'); 
+    
+    
+    // 5. RESTITUTION DES BLOCS DE CODE (Doit être la dernière étape)
+    codeBlocks.forEach((block, index) => {
+        const placeholder = `__CODEBLOCK_${index}__`;
+        html = html.replace(new RegExp(placeholder, 'g'), block);
+    });
+    
+    // 6. NETTOYAGE FINAL
+    html = html.replace(/  /g, ' &nbsp;'); 
+    html = html.replace(/<br><hr>/g, '<hr>'); 
+    html = html.replace(/<hr><br>/g, '<hr>'); 
+
+    return html;
+}
+
+
+</script>
+</body>
+</html>
